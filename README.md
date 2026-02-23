@@ -18,6 +18,48 @@ As a SOC analyst, your task is to investigate this incident using Splunk. Analyz
 
 ---
 
+# Investigation Summary
+
+On 15 October 2025 (UTC), a password spraying attack  originated from `172.16.0.184` targeting multiple accounts on `FRONTDESK-PC1`.
+
+The `Ryan.Adams` account was successfully compromised. Shortly after authentication, Windows Defender was disabled.
+
+The system downloaded a malicious executable from `157.245.46.190:9999/python.exe`, wrote it to disk, and executed it via the explorer.
+
+Immediately following execution, outbound communication was established to `157.245.46.190:8888`, consistent with command-and-control activity.
+
+The attacker established persistence by creating a scheduled task  configured to execute the payload at system startup under SYSTEM privileges.
+
+Threat intelligence enrichment confirms the external IP is known malicious C2 infrastructure.
+
+The session logged off at `13:06:40 UTC`. No further beaconing was observed in the dataset.
+
+The intrusion demonstrates a complete attack chain: initial access, credential abuse, defense evasion, tool transfer, execution, command-and-control, and persistence establishment.
+
+---
+
+# Recommendations:
+
+- Reset the password for `ryan.adams` immediately and conduct a credential reset review for all targeted accounts, particularly privileged users.
+- Isolate `FRONTDESK-PC1` from the network to prevent further outbound communication and preserve forensic evidence.
+- Reimage `FRONTDESK-PC1` to ensure complete removal of the malicious scheduled task, associated registry persistence artifacts, the `python.exe` payload, and any potential secondary persistence mechanisms.
+- Block `157.245.46.190` at perimeter firewall controls and review firewall and proxy logs to identify any additional internal hosts communicating with the same external infrastructure.
+- Enforce multi-factor authentication (MFA) for domain accounts to reduce the impact of credential compromise.
+- Implement account lockout or smart lockout policies to mitigate password spraying attacks.
+- Enable Microsoft Defender tamper protection to prevent unauthorized modification or disabling of endpoint protection.
+- Enforce security policies restricting the ability to disable endpoint protection without administrative authorization.
+- Create detection rules and alerts for:
+    - Windows Defender disablement events (`EventCode 5001`)
+    - Suspicious binary execution from user profile directories
+    - Scheduled task creation events
+    - Repeated failed authentication attempts from a single source IP
+- Conduct an enterprise-wide IOC sweep using:
+    - The SHA256 hash of `python.exe`
+    - The external IP `157.245.46.190`
+    - Associated ports used during the incident
+
+---
+
 # Findings
 
 ## 1. Password Spraying Activity
@@ -274,25 +316,7 @@ The compromised session (`Logon_ID=0xCB817C`) logged off at `13:06:40 UTC` indic
 
 ![image.png](image%2017.png)
 
----
 
-# Investigation Summary (What Happened)
-
-On 15 October 2025 (UTC), a password spraying attack  originated from `172.16.0.184` targeting multiple accounts on `FRONTDESK-PC1`.
-
-The `Ryan.Adams` account was successfully compromised. Shortly after authentication, Windows Defender was disabled.
-
-The system downloaded a malicious executable from `157.245.46.190:9999/python.exe`, wrote it to disk, and executed it via the explorer.
-
-Immediately following execution, outbound communication was established to `157.245.46.190:8888`, consistent with command-and-control activity.
-
-The attacker established persistence by creating a scheduled task  configured to execute the payload at system startup under SYSTEM privileges.
-
-Threat intelligence enrichment confirms the external IP is known malicious C2 infrastructure.
-
-The session logged off at `13:06:40 UTC`. No further beaconing was observed in the dataset.
-
-The intrusion demonstrates a complete attack chain: initial access, credential abuse, defense evasion, tool transfer, execution, command-and-control, and persistence establishment.
 
 ---
 
@@ -373,24 +397,4 @@ Likely objectives:
 - `schtasks.exe` was executed with `/create`, generating a task named `PythonUpdate` configured with `/sc onstart` and `/ru SYSTEM`, ensuring automatic execution at boot with elevated privileges.
 - A corresponding logoff event (`EventCode 4634`) with the same `Logon_ID` confirmed the compromised session lifecycle concluded.
 
----
 
-# Recommendations:
-
-- Reset the password for `ryan.adams` immediately and conduct a credential reset review for all targeted accounts, particularly privileged users.
-- Isolate `FRONTDESK-PC1` from the network to prevent further outbound communication and preserve forensic evidence.
-- Reimage `FRONTDESK-PC1` to ensure complete removal of the malicious scheduled task, associated registry persistence artifacts, the `python.exe` payload, and any potential secondary persistence mechanisms.
-- Block `157.245.46.190` at perimeter firewall controls and review firewall and proxy logs to identify any additional internal hosts communicating with the same external infrastructure.
-- Enforce multi-factor authentication (MFA) for domain accounts to reduce the impact of credential compromise.
-- Implement account lockout or smart lockout policies to mitigate password spraying attacks.
-- Enable Microsoft Defender tamper protection to prevent unauthorized modification or disabling of endpoint protection.
-- Enforce security policies restricting the ability to disable endpoint protection without administrative authorization.
-- Create detection rules and alerts for:
-    - Windows Defender disablement events (`EventCode 5001`)
-    - Suspicious binary execution from user profile directories
-    - Scheduled task creation events
-    - Repeated failed authentication attempts from a single source IP
-- Conduct an enterprise-wide IOC sweep using:
-    - The SHA256 hash of `python.exe`
-    - The external IP `157.245.46.190`
-    - Associated ports used during the incident
