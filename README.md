@@ -34,7 +34,91 @@ Threat intelligence enrichment confirms the external IP is known malicious C2 in
 
 The session logged off at `13:06:40 UTC`. No further beaconing was observed in the dataset.
 
+Conducted an enterprise-wide IOC sweep using the SHA256 hash of the malicious python.exe, the external IP 157.245.46.190, and the associated ports observed during the incident. Based on the available telemetry, no additional matches were identified across the environment.
+
 The intrusion demonstrates a complete attack chain: initial access, credential abuse, defense evasion, tool transfer, execution, command-and-control, and persistence establishment.
+
+---
+
+# Who, What, When, Where, Why, How
+
+## Who
+
+- Compromised Account: `Ryan.Adams`
+- Affected Host: `FRONTDESK-PC1`
+- Attacker Source IP: `172.16.0.184`
+- Malicious Infrastructure: `157.245.46.190`
+
+---
+
+## What
+
+- Credential spraying was observed against multiple domain accounts from a single source IP.
+- The `Ryan.Adams` account was successfully authenticated using valid credentials.
+- Windows Defender real-time protection was disabled and security settings were modified.
+- A malicious executable (`python.exe`) was downloaded from external infrastructure.
+- The file was written to the user’s profile directory.
+- The payload was executed within the compromised session.
+- Outbound communication was established to an external IP, consistent with command-and-control activity.
+- A scheduled task was created to maintain persistence at system startup under the `SYSTEM` account.
+- The compromised session later logged off, indicating termination of the interactive session.
+
+---
+
+## When (UTC)
+
+- Password spraying: `12:51:44 UTC`
+- Successful session logon: `12:55:17 UTC`
+- Defender disabled: `12:55:50 UTC`
+- Payload download: `12:59:26 UTC`
+- Execution: `13:00:33 UTC`
+- C2 connection: `13:00:34 UTC`
+- Unusual mouse movement reported: `*approx* 13:00:00 UTC`
+- Persistence creation: `13:04:59 UTC`
+- Logoff: `13:06:40 UTC`
+
+Ongoing activity: Not observed in available logs.
+
+---
+
+## Where
+
+- Host: `FRONTDESK-PC1.KCD.local`
+- Payload Location:
+    
+    `C:\Users\Ryan.Adams\Music\python.exe`
+    
+- Delivery Port: `9999`
+- C2 Port: `8888`
+- External IP: `157.245.46.190`
+
+---
+
+## Why
+
+Likely objectives:
+
+- Establish remote access
+- Maintain persistent control
+- Enable ongoing command-and-control
+
+---
+
+## How
+
+- Multiple failed logon attempts `(EventCode 4625`) were performed from a single source IP against several user accounts, consistent with password spraying.
+- A successful network logon (`EventCode 4624, Logon_Type 3`) occurred for `Ryan.Adams`, confirming credential compromise.
+- Windows Defender real-time protection was disabled (`EventCode 5001`) weakening endpoint defenses.
+- The host initiated an HTTP request to `157.245.46.190` on port `9999` for `/python.exe`; the server returned HTTP status `200`, confirming successful file transfer.
+- Sysmon telemetry confirmed the file was written to `C:\Users\Ryan.Adams\Music\python.exe`.
+- The executable was launched via `explorer.exe`, indicating user-context execution rather than command-line interpreter abuse.
+- Immediately after execution, outbound communication was observed to `157.245.46.190` over port `8888`, establishing a remote command channel.
+- `Ryan.Adams` reports at around `13:00UTC` that his mouse was moving without his input.
+- `schtasks.exe` was executed with `/create`, generating a task named `PythonUpdate` configured with `/sc onstart` and `/ru SYSTEM`, ensuring automatic execution at boot with elevated privileges.
+- A corresponding logoff event (`EventCode 4634`) with the same `Logon_ID` confirmed the compromised session lifecycle concluded.
+
+
+
 
 ---
 
@@ -53,10 +137,6 @@ The intrusion demonstrates a complete attack chain: initial access, credential a
     - Suspicious binary execution from user profile directories
     - Scheduled task creation events
     - Repeated failed authentication attempts from a single source IP
-- Conduct an enterprise-wide IOC sweep using:
-    - The SHA256 hash of `python.exe`
-    - The external IP `157.245.46.190`
-    - Associated ports used during the incident
 
 ---
 
@@ -318,83 +398,6 @@ The compromised session (`Logon_ID=0xCB817C`) logged off at `13:06:40 UTC` indic
 
 
 
----
 
-# Who, What, When, Where, Why, How
-
-## Who
-
-- Compromised Account: `Ryan.Adams`
-- Affected Host: `FRONTDESK-PC1`
-- Attacker Source IP: `172.16.0.184`
-- Malicious Infrastructure: `157.245.46.190`
-
----
-
-## What
-
-- Credential spraying was observed against multiple domain accounts from a single source IP.
-- The `Ryan.Adams` account was successfully authenticated using valid credentials.
-- Windows Defender real-time protection was disabled and security settings were modified.
-- A malicious executable (`python.exe`) was downloaded from external infrastructure.
-- The file was written to the user’s profile directory.
-- The payload was executed within the compromised session.
-- Outbound communication was established to an external IP, consistent with command-and-control activity.
-- A scheduled task was created to maintain persistence at system startup under the `SYSTEM` account.
-- The compromised session later logged off, indicating termination of the interactive session.
-
----
-
-## When (UTC)
-
-- Password spraying: `12:51:44 UTC`
-- Successful session logon: `12:55:17 UTC`
-- Defender disabled: `12:55:50 UTC`
-- Payload download: `12:59:26 UTC`
-- Execution: `13:00:33 UTC`
-- C2 connection: `13:00:34 UTC`
-- Unusual mouse movement reported: `*approx* 13:00:00 UTC`
-- Persistence creation: `13:04:59 UTC`
-- Logoff: `13:06:40 UTC`
-
-Ongoing activity: Not observed in available logs.
-
----
-
-## Where
-
-- Host: `FRONTDESK-PC1.KCD.local`
-- Payload Location:
-    
-    `C:\Users\Ryan.Adams\Music\python.exe`
-    
-- Delivery Port: `9999`
-- C2 Port: `8888`
-- External IP: `157.245.46.190`
-
----
-
-## Why
-
-Likely objectives:
-
-- Establish remote access
-- Maintain persistent control
-- Enable ongoing command-and-control
-
----
-
-## How
-
-- Multiple failed logon attempts `(EventCode 4625`) were performed from a single source IP against several user accounts, consistent with password spraying.
-- A successful network logon (`EventCode 4624, Logon_Type 3`) occurred for `Ryan.Adams`, confirming credential compromise.
-- Windows Defender real-time protection was disabled (`EventCode 5001`) weakening endpoint defenses.
-- The host initiated an HTTP request to `157.245.46.190` on port `9999` for `/python.exe`; the server returned HTTP status `200`, confirming successful file transfer.
-- Sysmon telemetry confirmed the file was written to `C:\Users\Ryan.Adams\Music\python.exe`.
-- The executable was launched via `explorer.exe`, indicating user-context execution rather than command-line interpreter abuse.
-- Immediately after execution, outbound communication was observed to `157.245.46.190` over port `8888`, establishing a remote command channel.
-- `Ryan.Adams` reports at around `13:00UTC` that his mouse was moving without his input.
-- `schtasks.exe` was executed with `/create`, generating a task named `PythonUpdate` configured with `/sc onstart` and `/ru SYSTEM`, ensuring automatic execution at boot with elevated privileges.
-- A corresponding logoff event (`EventCode 4634`) with the same `Logon_ID` confirmed the compromised session lifecycle concluded.
 
 
